@@ -1,6 +1,8 @@
 require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
+const cors = require('cors');
+
 const db = require('./src/config/firebase');
 
 // Import Middleware
@@ -17,8 +19,9 @@ const qrCodeRoutes = require('./src/routes/qrCode');
 const activityRoutes = require('./src/routes/activity');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 4000;
 
+app.use(cors());
 app.use(bodyParser.json());
 
 // Gunakan Routes

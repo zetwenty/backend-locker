@@ -19,20 +19,20 @@ const validateLockerStatus = async (req, res, next) => {
             const waktuMulai = new Date(lokerData.waktu_mulai);
             const selisihJam = (waktuSekarang - waktuMulai) / (1000 * 60 * 60); // Konversi ke jam
 
-            // Jika sudah lebih dari 12 jam, tampilkan pesan yang benar
+            // Jika sudah lebih dari 12 jam, harus dibuka oleh admin
             if (selisihJam > 12) {
                 return res.status(403).json({ 
                     message: `Loker ${id_loker} telah digunakan lebih dari 12 jam! Silakan hubungi admin untuk membukanya kembali.` 
                 });
             }
 
-            // Jika masih kurang dari 12 jam, gunakan pesan standar
-            return res.status(403).json({ message: 'Loker sudah digunakan, tidak dapat dibuka!' });
+            // Jika masih dalam pemakaian, tidak boleh dibuka oleh pengguna lain
+            return res.status(403).json({ message: `Loker ${id_loker} sedang digunakan, tidak dapat dibuka!` });
         }
 
-        // Simpan data loker di request
+        // Simpan data loker di request agar bisa digunakan di controller
         req.lokerData = lokerData;
-        next(); // Lanjutkan ke proses pembukaan loker
+        next(); 
     } catch (error) {
         console.error('Error validating locker status:', error.message);
         res.status(500).json({ error: 'Internal server error' });
