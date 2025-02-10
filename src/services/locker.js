@@ -1,5 +1,21 @@
 const db = require('../config/firebase');
 
+// Fungsi untuk mendapatkan nama pengguna berdasarkan tipe pengguna
+const getNamaPengguna = async (id_pengguna, tipe_pengguna) => {
+    if (tipe_pengguna === 'mahasiswa') {
+        const mahasiswaSnapshot = await db.ref(`mahasiswa/${id_pengguna}`).once('value');
+        if (mahasiswaSnapshot.exists()) {
+            return mahasiswaSnapshot.val().nama;
+        }
+    } else if (tipe_pengguna === 'visitor') {
+        const visitorSnapshot = await db.ref(`visitor/${id_pengguna}`).once('value');
+        if (visitorSnapshot.exists()) {
+            return visitorSnapshot.val().nama;
+        }
+    }
+    return 'Pengguna Tidak Diketahui';
+};
+
 // Fungsi untuk membuka loker
 const openLocker = async ({ id_loker, qr_code, id_pengguna, tipe_pengguna }) => {
     const lokerSnapshot = await db.ref(`locker/${id_loker}`).once('value');
@@ -9,7 +25,8 @@ const openLocker = async ({ id_loker, qr_code, id_pengguna, tipe_pengguna }) => 
 
     const lokerData = lokerSnapshot.val();
     const waktuSekarang = new Date();
-    
+    const nama_pengguna = await getNamaPengguna(id_pengguna, tipe_pengguna);
+
     // Jika loker sedang digunakan
     if (lokerData.status === 'in_use') {
         const waktuMulai = new Date(lokerData.waktu_mulai);
@@ -41,10 +58,10 @@ const openLocker = async ({ id_loker, qr_code, id_pengguna, tipe_pengguna }) => 
         waktu_mulai: waktuMulaiISO,
     });
 
-    return { message: `Loker ${id_loker} berhasil dibuka oleh ${tipe_pengguna} - ${id_pengguna}!`, waktu_mulai: waktuMulaiISO };
+    return { message: `Loker ${id_loker} berhasil dibuka oleh ${tipe_pengguna} - ${nama_pengguna}!`, waktu_mulai: waktuMulaiISO };
 };
 
-// Fugsi untuk menutup loker
+// Fungsi untuk menutup loker
 const closeLocker = async ({ id_loker, qr_code }) => {
     const waktuSelesaiISO = new Date().toISOString();
 
@@ -62,6 +79,10 @@ const closeLocker = async ({ id_loker, qr_code }) => {
 
     const activities = activitySnapshot.val();
     const lastActivityKey = Object.keys(activities).pop();
+    const lastActivity = activities[lastActivityKey];
+
+    // Dapatkan nama pengguna dari aktivitas terakhir
+    const nama_pengguna = await getNamaPengguna(lastActivity.id_pengguna, lastActivity.tipe_pengguna);
 
     // Perbarui waktu_selesai di aktivitas
     await db.ref(`activities/${lastActivityKey}`).update({
@@ -77,7 +98,7 @@ const closeLocker = async ({ id_loker, qr_code }) => {
         waktu_mulai: null
     });
 
-    return { message: `Loker ${id_loker} berhasil ditutup!` };
+    return { message: `Loker ${id_loker} berhasil ditutup oleh ${lastActivity.tipe_pengguna} - ${nama_pengguna}!` };
 };
 
 // Fungsi untuk menambahkan loker
