@@ -116,7 +116,7 @@ const unlockLocker = async (req, res) => {
             waktu_selesai: null
         });
 
-        res.status(200).json({ message: `Loker ${id_loker} berhasil dibuka kembali oleh admin! QR Code ${qr_code} telah direset menjadi "available".` });
+        res.status(200).json({ message: `Loker ${id_loker} berhasil dibuka kembali oleh admin! QR Code ${qr_code} telah direset menjadi available` });
 
     } catch (error) {
         console.error('Error unlocking locker:', error.message);

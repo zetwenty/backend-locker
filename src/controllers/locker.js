@@ -34,7 +34,8 @@ const closeLocker = async (req, res) => {
             id_loker: req.body.id_loker,
             qr_code: req.body.qr_code
         });
-        res.status(200).json(response);
+
+        res.status(response.status).json({ message: response.message });
     } catch (error) {
         console.error('Error saat menutup loker:', error.message);
         res.status(500).json({ error: 'Internal server error' });
