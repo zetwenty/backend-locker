@@ -4,7 +4,6 @@ const db = require('../config/firebase');
 const logActivity = async (req, res) => {
     const { qr_code, id_loker, waktu_mulai, waktu_selesai } = req.body;
 
-    // Validasi input
     if (!qr_code || !id_loker || !waktu_mulai || !waktu_selesai) {
         return res.status(400).json({ message: 'Data aktivitas tidak lengkap!' });
     }
@@ -16,19 +15,48 @@ const logActivity = async (req, res) => {
             return res.status(400).json({ message: 'QR Code tidak valid atau tidak sedang digunakan!' });
         }
 
+        // Cari nama berdasarkan QR Code
+        let nama = '';
+        
+        // Cek apakah QR Code adalah NIM mahasiswa
+        const mahasiswaSnapshot = await db.ref('mahasiswa')
+            .orderByChild('nim')
+            .equalTo(qr_code)
+            .once('value');
+        
+        if (mahasiswaSnapshot.exists()) {
+            const mahasiswaData = mahasiswaSnapshot.val();
+            const firstKey = Object.keys(mahasiswaData)[0];
+            nama = mahasiswaData[firstKey].nama;
+        } 
+        // Jika bukan NIM, cek sebagai QR visitor
+        else {
+            const visitorSnapshot = await db.ref('visitor')
+                .orderByChild('qr_code')
+                .equalTo(qr_code)
+                .once('value');
+            
+            if (visitorSnapshot.exists()) {
+                const visitorData = visitorSnapshot.val();
+                const firstKey = Object.keys(visitorData)[0];
+                nama = visitorData[firstKey].nama;
+            } else {
+                return res.status(400).json({ message: 'QR Code tidak terdaftar!' });
+            }
+        }
+
         const activityId = `A${Date.now()}`;
 
-        // Simpan aktivitas ke Firebase
+        // Simpan aktivitas dengan nama
         await db.ref(`activities/${activityId}`).set({
             qr_code,
             id_loker,
             waktu_mulai,
-            waktu_selesai
+            waktu_selesai,
+            nama // Tambahkan field nama
         });
 
-        // Reset status QR Code menjadi "available"
         await db.ref(`qr_codes/${qr_code}`).set('available');
-
         res.status(201).json({ message: 'Aktivitas berhasil dicatat.', activityId });
     } catch (error) {
         console.error('Error logging activity:', error.message);

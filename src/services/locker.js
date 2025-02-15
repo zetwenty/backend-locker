@@ -26,12 +26,10 @@ const openLocker = async ({ id_loker, qr_code, id_pengguna, tipe_pengguna }) => 
     const lokerData = lokerSnapshot.val();
     const nama_pengguna = await getNamaPengguna(id_pengguna, tipe_pengguna);
 
-    // Jika loker sedang digunakan, pengguna lain tidak bisa membukanya
     if (lokerData.status === 'in_use') {
         throw new Error(`Loker ${id_loker} sedang digunakan, tidak dapat dibuka!`);
     }
 
-    // Jika loker bisa dibuka
     const waktuMulaiISO = new Date().toISOString();
     const activityId = `A${Date.now()}`;
 
@@ -41,7 +39,8 @@ const openLocker = async ({ id_loker, qr_code, id_pengguna, tipe_pengguna }) => 
         qr_code,
         id_loker,
         waktu_mulai: waktuMulaiISO,
-        waktu_selesai: null
+        waktu_selesai: null,
+        nama: nama_pengguna // Tambahkan field nama
     });
 
     await db.ref(`locker/${id_loker}`).update({
