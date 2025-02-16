@@ -12,6 +12,6 @@ router.get('/status', lockerController.getLockerStatus);
 router.post('/open', validateQRCode, validateLockerStatus, lockerController.openLocker);
 router.post('/close', validateQRCode, lockerController.closeLocker);
 router.post('/admin/unlock-locker', authenticateJWT, lockerController.unlockLocker);
-router.delete('/delete/:id_loker', lockerController.deleteLocker);
+router.delete('/delete/:id_loker', authenticateJWT, lockerController.deleteLocker);
 
 module.exports = router;

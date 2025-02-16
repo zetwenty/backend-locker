@@ -61,7 +61,7 @@ const closeLocker = async ({ id_loker, qr_code }) => {
         // Ambil data loker dari Firebase
         const lokerSnapshot = await db.ref(`locker/${id_loker}`).once('value');
         if (!lokerSnapshot.exists()) {
-            throw new Error(`Loker ${id_loker} tidak ditemukan!`);
+            return { status: 404, message: `Loker ${id_loker} tidak ditemukan!` };
         }
 
         const lokerData = lokerSnapshot.val();
@@ -75,18 +75,32 @@ const closeLocker = async ({ id_loker, qr_code }) => {
             return { status: 403, message: `Loker ${id_loker} telah digunakan lebih dari 12 jam! Silakan hubungi admin untuk membukanya kembali.` };
         }
 
+        // Cek apakah QR Code milik mahasiswa atau visitor
+        let nama_pengguna = "Tidak ditemukan";
+        const mahasiswaSnapshot = await db.ref('mahasiswa').orderByChild('nim').equalTo(qr_code).once('value');
+        if (mahasiswaSnapshot.exists()) {
+            const mahasiswaData = mahasiswaSnapshot.val();
+            const firstKey = Object.keys(mahasiswaData)[0];
+            nama_pengguna = mahasiswaData[firstKey].nama;
+        } else {
+            const visitorSnapshot = await db.ref('visitor').orderByChild('qr_code').equalTo(qr_code).once('value');
+            if (visitorSnapshot.exists()) {
+                const visitorData = visitorSnapshot.val();
+                const firstKey = Object.keys(visitorData)[0];
+                nama_pengguna = visitorData[firstKey].nama;
+            }
+        }
+
         // Cari aktivitas terakhir berdasarkan QR Code
         const activitySnapshot = await db.ref('activities').orderByChild('qr_code').equalTo(qr_code).once('value');
+
         if (!activitySnapshot.exists()) {
-            throw new Error(`Tidak ditemukan aktivitas terkait QR Code ${qr_code}!`);
+            return { status: 400, message: `Tidak ditemukan aktivitas terkait QR Code ${qr_code} - ${nama_pengguna}!` };
         }
 
         const activities = activitySnapshot.val();
         const lastActivityKey = Object.keys(activities).pop();
         const lastActivity = activities[lastActivityKey];
-
-        // Dapatkan nama pengguna dari aktivitas terakhir
-        const nama_pengguna = await getNamaPengguna(lastActivity.id_pengguna, lastActivity.tipe_pengguna);
 
         // Perbarui waktu_selesai di aktivitas
         await db.ref(`activities/${lastActivityKey}`).update({
@@ -105,10 +119,9 @@ const closeLocker = async ({ id_loker, qr_code }) => {
         return { status: 200, message: `Loker ${id_loker} berhasil ditutup oleh ${lastActivity.tipe_pengguna} - ${nama_pengguna}!` };
     } catch (error) {
         console.error('Error saat menutup loker:', error.message);
-        return { status: 500, error: 'Internal server error' };
+        return { status: 500, message: `Terjadi kesalahan: ${error.message}` };
     }
 };
-
 
 // Fungsi untuk membuka kembali loker setelah 12 jam oleh admin
 const unlockLocker = async (id_loker) => {
