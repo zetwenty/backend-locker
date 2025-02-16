@@ -4,6 +4,7 @@ const qrCodeController = require('../controllers/qrCode');
 
 // Rute terkait QR Code
 router.post('/add', qrCodeController.addQRCode);
+router.get('/', qrCodeController.getAllQRCodes);
 router.get('/available', qrCodeController.getAvailableQRCodes);
 router.post('/reset', qrCodeController.resetQRCodes);
 

@@ -48,6 +48,30 @@ const getAvailableQRCodes = async (req, res) => {
     }
 };
 
+// Endpoint untuk mendapatkan semua QR Code yang terdaftar (baik available maupun in_use)
+const getAllQRCodes = async (req, res) => {
+    try {
+        const qrSnapshot = await db.ref('qr_codes').once('value');
+        const allQRs = qrSnapshot.val();
+
+        if (!allQRs) {
+            return res.status(404).json({ message: 'Tidak ada QR Code yang terdaftar!' });
+        }
+
+        // Format response agar semua QR Code terlihat beserta statusnya
+        const qrList = Object.keys(allQRs).map(qr_code => ({
+            qr_code,
+            status: allQRs[qr_code]
+        }));
+
+        res.status(200).json(qrList);
+    } catch (error) {
+        console.error('Error saat mengambil semua QR Code:', error.message);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+
 // Endpoint untuk mereset status QR Code menjadi "available"
 const resetQRCodes = async (req, res) => {
     const { ids } = req.body;
@@ -81,4 +105,4 @@ const resetQRCodes = async (req, res) => {
 };
 
 // Ekspor semua fungsi terkait QR Code
-module.exports = { addQRCode, getAvailableQRCodes, resetQRCodes };
+module.exports = { addQRCode, getAvailableQRCodes, resetQRCodes, getAllQRCodes };
