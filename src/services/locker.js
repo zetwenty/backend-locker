@@ -54,9 +54,24 @@ const openLocker = async ({ id_loker, qr_code, id_pengguna, tipe_pengguna }) => 
 };
 
 // Fungsi untuk menutup loker
-const closeLocker = async ({ id_loker, qr_code }) => {
+const closeLocker = async ({ qr_code }) => {
     try {
         const waktuSelesaiISO = new Date().toISOString();
+
+        // Cari aktivitas terakhir berdasarkan QR Code
+        const activitySnapshot = await db.ref('activities').orderByChild('qr_code').equalTo(qr_code).once('value');
+        if (!activitySnapshot.exists()) {
+            return { status: 400, message: `Tidak ditemukan aktivitas terkait QR Code ${qr_code}!` };
+        }
+
+        const activities = activitySnapshot.val();
+        const lastActivityKey = Object.keys(activities).pop();
+        const lastActivity = activities[lastActivityKey];
+        const id_loker = lastActivity.id_loker;
+
+        if (!id_loker) {
+            return { status: 400, message: `Loker tidak ditemukan untuk QR Code ${qr_code}!` };
+        }
 
         // Ambil data loker dari Firebase
         const lokerSnapshot = await db.ref(`locker/${id_loker}`).once('value');
@@ -90,17 +105,6 @@ const closeLocker = async ({ id_loker, qr_code }) => {
                 nama_pengguna = visitorData[firstKey].nama;
             }
         }
-
-        // Cari aktivitas terakhir berdasarkan QR Code
-        const activitySnapshot = await db.ref('activities').orderByChild('qr_code').equalTo(qr_code).once('value');
-
-        if (!activitySnapshot.exists()) {
-            return { status: 400, message: `Tidak ditemukan aktivitas terkait QR Code ${qr_code} - ${nama_pengguna}!` };
-        }
-
-        const activities = activitySnapshot.val();
-        const lastActivityKey = Object.keys(activities).pop();
-        const lastActivity = activities[lastActivityKey];
 
         // Perbarui waktu_selesai di aktivitas
         await db.ref(`activities/${lastActivityKey}`).update({

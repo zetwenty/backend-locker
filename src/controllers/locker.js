@@ -31,7 +31,6 @@ const openLocker = async (req, res) => {
 const closeLocker = async (req, res) => {
     try {
         const response = await lockerService.closeLocker({
-            id_loker: req.body.id_loker,
             qr_code: req.body.qr_code
         });
 
