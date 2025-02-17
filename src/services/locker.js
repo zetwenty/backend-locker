@@ -50,8 +50,12 @@ const openLocker = async ({ id_loker, qr_code, id_pengguna, tipe_pengguna }) => 
 
     await db.ref(`qr_codes/${qr_code}`).set('in_use');
 
+    // 🔹 Update status relay di Firebase agar ESP32 membuka loker
+    await db.ref('Relay/state').set(true);
+
     return { message: `Loker ${id_loker} berhasil dibuka oleh ${tipe_pengguna} - ${nama_pengguna}!`, waktu_mulai: waktuMulaiISO };
 };
+
 
 // Fungsi untuk menutup loker
 const closeLocker = async ({ qr_code }) => {
@@ -106,6 +110,9 @@ const closeLocker = async ({ qr_code }) => {
             }
         }
 
+        // 🔹 Update status relay di Firebase agar ESP32 membuka loker sebelum pengguna mengambil barang
+        await db.ref('Relay/state').set(true);
+
         // Perbarui waktu_selesai di aktivitas
         await db.ref(`activities/${lastActivityKey}`).update({
             waktu_selesai: waktuSelesaiISO
@@ -120,12 +127,13 @@ const closeLocker = async ({ qr_code }) => {
             waktu_mulai: null
         });
 
-        return { status: 200, message: `Loker ${id_loker} berhasil ditutup oleh ${lastActivity.tipe_pengguna} - ${nama_pengguna}!` };
+        return { status: 200, message: `Loker ${id_loker} berhasil dibuka untuk pengambilan barang oleh ${lastActivity.tipe_pengguna} - ${nama_pengguna}, setelah itu akan menutup otomatis sesuai kondisi ESP32!` };
     } catch (error) {
         console.error('Error saat menutup loker:', error.message);
         return { status: 500, message: `Terjadi kesalahan: ${error.message}` };
     }
 };
+
 
 // Fungsi untuk membuka kembali loker setelah 12 jam oleh admin
 const unlockLocker = async (id_loker) => {
