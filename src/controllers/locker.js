@@ -1,3 +1,5 @@
+// controllers/locker.js:
+
 const lockerService = require('../services/locker');
 
 // Controller untuk menambahkan loker
@@ -20,6 +22,11 @@ const openLocker = async (req, res) => {
             id_pengguna: req.id_pengguna,
             tipe_pengguna: req.tipe_pengguna
         });
+
+        if (response.status && response.status !== 200) {
+            return res.status(response.status).json({ message: response.message });
+        }
+
         res.status(200).json(response);
     } catch (error) {
         console.error('Error saat membuka loker:', error.message);
@@ -27,10 +34,12 @@ const openLocker = async (req, res) => {
     }
 };
 
+
 // Controller untuk menutup loker
 const closeLocker = async (req, res) => {
     try {
         const response = await lockerService.closeLocker({
+            id_loker: req.body.id_loker,
             qr_code: req.body.qr_code
         });
 

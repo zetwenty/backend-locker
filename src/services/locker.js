@@ -18,6 +18,26 @@ const getNamaPengguna = async (id_pengguna, tipe_pengguna) => {
 
 // Fungsi untuk membuka loker
 const openLocker = async ({ id_loker, qr_code, id_pengguna, tipe_pengguna }) => {
+    // Cek apakah QR Code sudah digunakan untuk membuka loker lain
+    const activeLockerSnapshot = await db.ref('activities')
+        .orderByChild('qr_code')
+        .equalTo(qr_code)
+        .once('value');
+
+    if (activeLockerSnapshot.exists()) {
+        const activities = activeLockerSnapshot.val();
+        const lastActivityKey = Object.keys(activities).pop();
+        const lastActivity = activities[lastActivityKey];
+
+        if (!lastActivity.waktu_selesai) {
+            return { 
+                status: 400, 
+                message: `${qr_code} - ${lastActivity.nama} sedang menggunakan loker ${lastActivity.id_loker}, tidak bisa membuka loker lain!` 
+            };
+        }
+    }
+
+    // 🔹 Ambil data loker dari Firebase
     const lokerSnapshot = await db.ref(`locker/${id_loker}`).once('value');
     if (!lokerSnapshot.exists()) {
         throw new Error('Loker tidak ditemukan!');
@@ -57,12 +77,13 @@ const openLocker = async ({ id_loker, qr_code, id_pengguna, tipe_pengguna }) => 
 };
 
 
+
 // Fungsi untuk menutup loker
 const closeLocker = async ({ qr_code }) => {
     try {
         const waktuSelesaiISO = new Date().toISOString();
 
-        // Cari aktivitas terakhir berdasarkan QR Code
+        // 🔹 Cari aktivitas terakhir berdasarkan QR Code
         const activitySnapshot = await db.ref('activities').orderByChild('qr_code').equalTo(qr_code).once('value');
         if (!activitySnapshot.exists()) {
             return { status: 400, message: `Tidak ditemukan aktivitas terkait QR Code ${qr_code}!` };
@@ -77,7 +98,7 @@ const closeLocker = async ({ qr_code }) => {
             return { status: 400, message: `Loker tidak ditemukan untuk QR Code ${qr_code}!` };
         }
 
-        // Ambil data loker dari Firebase
+        // 🔹 Ambil data loker dari Firebase
         const lokerSnapshot = await db.ref(`locker/${id_loker}`).once('value');
         if (!lokerSnapshot.exists()) {
             return { status: 404, message: `Loker ${id_loker} tidak ditemukan!` };
@@ -86,7 +107,7 @@ const closeLocker = async ({ qr_code }) => {
         const lokerData = lokerSnapshot.val();
         const waktuSekarang = new Date();
 
-        // Cek apakah loker sudah digunakan lebih dari 12 jam
+        // 🔹 Cek apakah loker sudah digunakan lebih dari 12 jam
         const waktuMulai = new Date(lokerData.waktu_mulai);
         const selisihJam = (waktuSekarang - waktuMulai) / (1000 * 60 * 60); // Konversi ke jam
 
@@ -94,45 +115,29 @@ const closeLocker = async ({ qr_code }) => {
             return { status: 403, message: `Loker ${id_loker} telah digunakan lebih dari 12 jam! Silakan hubungi admin untuk membukanya kembali.` };
         }
 
-        // Cek apakah QR Code milik mahasiswa atau visitor
-        let nama_pengguna = "Tidak ditemukan";
-        const mahasiswaSnapshot = await db.ref('mahasiswa').orderByChild('nim').equalTo(qr_code).once('value');
-        if (mahasiswaSnapshot.exists()) {
-            const mahasiswaData = mahasiswaSnapshot.val();
-            const firstKey = Object.keys(mahasiswaData)[0];
-            nama_pengguna = mahasiswaData[firstKey].nama;
-        } else {
-            const visitorSnapshot = await db.ref('visitor').orderByChild('qr_code').equalTo(qr_code).once('value');
-            if (visitorSnapshot.exists()) {
-                const visitorData = visitorSnapshot.val();
-                const firstKey = Object.keys(visitorData)[0];
-                nama_pengguna = visitorData[firstKey].nama;
-            }
-        }
-
         // 🔹 Update status relay di Firebase agar ESP32 membuka loker sebelum pengguna mengambil barang
         await db.ref('Relay/state').set(true);
 
-        // Perbarui waktu_selesai di aktivitas
+        // 🔹 Pastikan Firebase hanya diupdate jika lolos semua validasi
         await db.ref(`activities/${lastActivityKey}`).update({
             waktu_selesai: waktuSelesaiISO
         });
 
-        // Reset QR Code ke "available"
         await db.ref(`qr_codes/${qr_code}`).set('available');
 
-        // Perbarui status loker menjadi "available" dan hapus waktu_mulai
         await db.ref(`locker/${id_loker}`).update({
             status: 'available',
             waktu_mulai: null
         });
 
-        return { status: 200, message: `Loker ${id_loker} berhasil dibuka untuk pengambilan barang oleh ${lastActivity.tipe_pengguna} - ${nama_pengguna}, setelah itu akan menutup otomatis sesuai kondisi ESP32!` };
+        return { status: 200, message: `Loker ${id_loker} berhasil dibuka untuk pengambilan barang oleh ${lastActivity.tipe_pengguna} - ${lastActivity.nama}, setelah itu akan menutup otomatis sesuai kondisi ESP32!` };
+
     } catch (error) {
         console.error('Error saat menutup loker:', error.message);
         return { status: 500, message: `Terjadi kesalahan: ${error.message}` };
     }
 };
+
 
 
 // Fungsi untuk membuka kembali loker setelah 12 jam oleh admin
