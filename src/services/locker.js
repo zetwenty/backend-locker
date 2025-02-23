@@ -18,7 +18,6 @@ const getNamaPengguna = async (id_pengguna, tipe_pengguna) => {
 
 // Fungsi untuk membuka loker
 const openLocker = async ({ id_loker, qr_code, id_pengguna, tipe_pengguna }) => {
-    // Cek apakah QR Code sudah digunakan untuk membuka loker lain
     const activeLockerSnapshot = await db.ref('activities')
         .orderByChild('qr_code')
         .equalTo(qr_code)
@@ -37,7 +36,6 @@ const openLocker = async ({ id_loker, qr_code, id_pengguna, tipe_pengguna }) => 
         }
     }
 
-    // 🔹 Ambil data loker dari Firebase
     const lokerSnapshot = await db.ref(`locker/${id_loker}`).once('value');
     if (!lokerSnapshot.exists()) {
         throw new Error('Loker tidak ditemukan!');
@@ -60,7 +58,7 @@ const openLocker = async ({ id_loker, qr_code, id_pengguna, tipe_pengguna }) => 
         id_loker,
         waktu_mulai: waktuMulaiISO,
         waktu_selesai: null,
-        nama: nama_pengguna // Tambahkan field nama
+        nama: nama_pengguna
     });
 
     await db.ref(`locker/${id_loker}`).update({
@@ -70,11 +68,11 @@ const openLocker = async ({ id_loker, qr_code, id_pengguna, tipe_pengguna }) => 
 
     await db.ref(`qr_codes/${qr_code}`).set('in_use');
 
-    // 🔹 Update status relay di Firebase agar ESP32 membuka loker
-    await db.ref('Relay/state').set(true);
+    await db.ref(`locker/${id_loker}/relay`).set(true);
 
     return { message: `Loker ${id_loker} berhasil dibuka oleh ${tipe_pengguna} - ${nama_pengguna}!`, waktu_mulai: waktuMulaiISO };
 };
+
 
 
 
@@ -83,7 +81,6 @@ const closeLocker = async ({ qr_code }) => {
     try {
         const waktuSelesaiISO = new Date().toISOString();
 
-        // 🔹 Cari aktivitas terakhir berdasarkan QR Code
         const activitySnapshot = await db.ref('activities').orderByChild('qr_code').equalTo(qr_code).once('value');
         if (!activitySnapshot.exists()) {
             return { status: 400, message: `Tidak ditemukan aktivitas terkait QR Code ${qr_code}!` };
@@ -98,7 +95,6 @@ const closeLocker = async ({ qr_code }) => {
             return { status: 400, message: `Loker tidak ditemukan untuk QR Code ${qr_code}!` };
         }
 
-        // 🔹 Ambil data loker dari Firebase
         const lokerSnapshot = await db.ref(`locker/${id_loker}`).once('value');
         if (!lokerSnapshot.exists()) {
             return { status: 404, message: `Loker ${id_loker} tidak ditemukan!` };
@@ -107,18 +103,15 @@ const closeLocker = async ({ qr_code }) => {
         const lokerData = lokerSnapshot.val();
         const waktuSekarang = new Date();
 
-        // 🔹 Cek apakah loker sudah digunakan lebih dari 12 jam
         const waktuMulai = new Date(lokerData.waktu_mulai);
-        const selisihJam = (waktuSekarang - waktuMulai) / (1000 * 60 * 60); // Konversi ke jam
+        const selisihJam = (waktuSekarang - waktuMulai) / (1000 * 60 * 60);
 
         if (selisihJam > 12) {
             return { status: 403, message: `Loker ${id_loker} telah digunakan lebih dari 12 jam! Silakan hubungi admin untuk membukanya kembali.` };
         }
 
-        // 🔹 Update status relay di Firebase agar ESP32 membuka loker sebelum pengguna mengambil barang
-        await db.ref('Relay/state').set(true);
+        await db.ref(`locker/${id_loker}/relay`).set(true);
 
-        // 🔹 Pastikan Firebase hanya diupdate jika lolos semua validasi
         await db.ref(`activities/${lastActivityKey}`).update({
             waktu_selesai: waktuSelesaiISO
         });
@@ -137,8 +130,6 @@ const closeLocker = async ({ qr_code }) => {
         return { status: 500, message: `Terjadi kesalahan: ${error.message}` };
     }
 };
-
-
 
 // Fungsi untuk membuka kembali loker setelah 12 jam oleh admin
 const unlockLocker = async (id_loker) => {
@@ -176,7 +167,12 @@ const addLocker = async (lockers) => {
             throw new Error(`ID Loker ${id_loker} harus dalam format LXXX (contoh: L001)`);
         }
 
-        await db.ref(`locker/${id_loker}`).set({ status, lokasi });
+        await db.ref(`locker/${id_loker}`).set({
+            status,
+            lokasi,
+            relay: false
+        });
+
         addedLockers.push(id_loker);
     }
 
