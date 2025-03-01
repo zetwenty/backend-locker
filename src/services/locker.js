@@ -116,6 +116,18 @@ const closeLocker = async ({ qr_code }) => {
             waktu_selesai: waktuSelesaiISO
         });
 
+        // 🔹 Hapus QR Code dari visitor sebelumnya sebelum mengubah status ke 'available'
+        const visitorSnapshot = await db.ref('visitor').orderByChild('qr_code').equalTo(qr_code).once('value');
+
+        if (visitorSnapshot.exists()) {
+            const visitorData = visitorSnapshot.val();
+            const visitorKey = Object.keys(visitorData)[0];
+
+            // Set nilai QR Code visitor sebelumnya ke null
+            await db.ref(`visitor/${visitorKey}/qr_code`).set(null);
+            console.log(`QR Code ${qr_code} dihapus dari visitor ${visitorKey}`);
+        }
+
         await db.ref(`qr_codes/${qr_code}`).set('available');
 
         await db.ref(`locker/${id_loker}`).update({
